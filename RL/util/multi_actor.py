@@ -10,6 +10,8 @@ import os
 import numpy as np
 from env.env import Training_Env,tech_indicator_list,transcation_cost,back_time_length,max_holding_number
 from functools import partial
+from model.net import masked_net1
+from multiprocessing import Pool
 
 def seed_torch(seed):
     random.seed(seed)
@@ -69,9 +71,9 @@ def collect_experience(actor:actor,environment,id):
         s,info=s_,info_
     optimal_result=np.max(specific_env.q_table[0][0][:])/specific_env.required_money
     final_return_rate=specific_env.final_balance/specific_env.required_money
+    indicator=(optimal_result-final_return_rate)*optimal_result
 
-    
-    return id,tranjectory,
+    return id,tranjectory,indicator
 
 
 
@@ -82,6 +84,20 @@ if __name__ == "__main__":
         transcation_cost=transcation_cost,
         back_time_length=back_time_length,
         max_holding_number=max_holding_number,
-        chunck_length=7200,)
-    specific_env=start_env(random_start=0)
-    print(specific_env.reset())
+        chunck_length=1000,)
+    model=masked_net1(66,11,32)
+    agent=actor(model=model,seed=12345)
+    #multi preprocessing
+    pool = Pool()
+    args=[0,7200]
+    func=partial(collect_experience,actor=agent,environment=start_env)
+    print(func)
+
+
+    result = pool.map(func, args)
+    pool.close()
+    pool.join()
+    print(result)
+
+
+    #actor pool
