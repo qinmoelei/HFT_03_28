@@ -351,7 +351,6 @@ class DQN(object):
         epoch_required_money_train_list = []
         epoch_reward_sum_train_list = []
         epoch_number = int(len(self.train_df) / self.chunk_length)
-        print(epoch_number)
         random_start_list = random.sample(
             range(0,
                   len(self.train_df) - self.chunk_length - 1), self.num_sample)

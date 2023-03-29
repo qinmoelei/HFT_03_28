@@ -16,3 +16,4 @@
 *.pyc
 **/result/
 **/data/
+**/log/
