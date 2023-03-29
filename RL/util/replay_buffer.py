@@ -331,6 +331,33 @@ class Multi_step_ReplayBuffer_multi_info:
             self.memory.append(e)
         self.iter_ += 1
 
+    def add_transition(
+        self,
+        transition,
+    ):
+        (state, info, action, reward, next_state, next_info, done)=transition
+        """Add a new experience to memory."""
+        # if we want to have multi core
+        if self.iter_ == self.parallel_env:
+            self.iter_ = 0
+        self.n_step_buffer[self.iter_].append(
+            (state, info, action, reward, next_state, next_info, done))
+
+        if len(self.n_step_buffer[self.iter_]) == self.n_step:
+            (
+                state,
+                info,
+                action,
+                reward,
+                next_state,
+                next_info,
+                done,
+            ) = self.calc_multistep_return(self.n_step_buffer[self.iter_])
+            e = self.experience(state, info, action, reward, next_state, done,
+                                next_info)
+            self.memory.append(e)
+        self.iter_ += 1
+
     def reset(self):
         self.memory = deque(maxlen=self.buffer_size)
 
@@ -500,15 +527,13 @@ class Multi_step_Prioritized_ReplayBuffer_multi_info(object):
 
         batch = {}
         for key in self.buffer.keys():  # numpy->tensor
-            if key in ["action" , "previous_action" , "next_previous_action"]:
+            if key in ["action", "previous_action", "next_previous_action"]:
                 batch[key] = torch.tensor(self.buffer[key][batch_index],
                                           dtype=torch.long)
-                
+
             else:
                 batch[key] = torch.tensor(self.buffer[key][batch_index],
                                           dtype=torch.float32)
-            
-        
 
         return batch, batch_index, IS_weight
 
@@ -555,8 +580,6 @@ class Multi_step_Prioritized_ReplayBuffer_multi_info(object):
                     single_next_q_action,
                     single_terminal,
                 )
-      
-                
 
         return (
             market_state,

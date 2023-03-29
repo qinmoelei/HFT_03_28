@@ -60,7 +60,7 @@ parser.add_argument("--epsilon",
                     help="the learning rate")
 parser.add_argument("--update_times",
                     type=int,
-                    default=2,
+                    default=20,
                     help="the update times")
 parser.add_argument("--gamma", type=float, default=1, help="the learning rate")
 
@@ -252,20 +252,6 @@ class DQN(object):
         self.ada_decay = args.ada_decay
         self.epsilon_decay_coffient = args.epsilon_decay_coffient
         self.ada_decay_coffient = args.ada_decay_coffient
-        self.actor = actor(self.eval_net, self.seed, epsilon=self.epsilon)
-        self.start_list = range(0, len(self.train_df), self.chunk_length)
-        Partial_training_env = partial(
-            Training_Env,
-            df=self.train_df,
-            tech_indicator_list=self.tech_indicator_list,
-            transcation_cost=self.transcation_cost,
-            back_time_length=self.back_time_length,
-            max_holding_number=self.max_holding_number,
-            chunck_length=self.chunk_length,
-        )
-        index_list, self.start_list, tranjectory_list, priority_list = collect_multiple_experience(
-            self.start_list, self.actor, Partial_training_env)
-        self.start_selector = start_selector()
 
     def update(
         self,
@@ -362,13 +348,9 @@ class DQN(object):
 
     def train(self):
         epoch_return_rate_train_list = []
-        epoch_final_balance_train_list = []
-        epoch_required_money_train_list = []
-        epoch_reward_sum_train_list = []
+
         epoch_number = int(len(self.train_df) / self.chunk_length)
-        random_start_list = random.sample(
-            range(0,
-                  len(self.train_df) - self.chunk_length - 1), self.num_sample)
+
         replay_buffer = Multi_step_ReplayBuffer_multi_info(
             buffer_size=self.buffer_size,
             batch_size=self.batch_size,
@@ -379,111 +361,80 @@ class DQN(object):
         )
         step_counter = 0
         for sample in range(self.num_sample):
-            random_start = random_start_list[sample]
-            train_env = Training_Env(
+            self.actor = actor(self.eval_net, self.seed, epsilon=self.epsilon)
+            self.start_list = range(0, len(self.train_df), self.chunk_length)
+            Partial_training_env = partial(
+                Training_Env,
                 df=self.train_df,
                 tech_indicator_list=self.tech_indicator_list,
-                random_start=random_start,
-                chunck_length=self.chunk_length,
                 transcation_cost=self.transcation_cost,
                 back_time_length=self.back_time_length,
                 max_holding_number=self.max_holding_number,
+                chunck_length=self.chunk_length,
             )
-            s, info = train_env.reset()
-            episode_reward_sum = 0
-            while True:
-                a = self.act(s, info)
-                s_, r, done, info_ = train_env.step(a)
-                if a == info["previous_action"]:
-                    r = r + self.preserve_bonus
-                replay_buffer.add(s, info, a, r * self.reward_scale, s_, info_,
-                                  done)
-                episode_reward_sum += r
+            index_list, start_list, tranjectory_list, priority_list, optimal_list, final_return_rate_list = collect_multiple_experience(
+                self.start_list, self.actor, Partial_training_env)
+            self.start_selector = start_selector(start_list, priority_list)
+            start, index = self.start_selector.sample()
+            tranjectory = tranjectory_list[index]
+            final_return_rate = final_return_rate_list[index]
+            for transition in tranjectory:
+                replay_buffer.add_transition(transition)
+            for i in range(self.update_times):
+                (
+                    states,
+                    infos,
+                    actions,
+                    rewards,
+                    next_states,
+                    next_infos,
+                    dones,
+                ) = replay_buffer.sample()
+                KL_div, td_error, q_eval, q_target = self.update(
+                    states,
+                    infos,
+                    actions,
+                    rewards,
+                    next_states,
+                    next_infos,
+                    dones,
+                )
+                if self.update_counter % self.q_value_memorize_freq == 1:
+                    self.writer.add_scalar(
+                        tag="KL",
+                        scalar_value=KL_div,
+                        global_step=self.update_counter,
+                        walltime=None,
+                    )
+                    self.writer.add_scalar(
+                        tag="td_error",
+                        scalar_value=td_error,
+                        global_step=self.update_counter,
+                        walltime=None,
+                    )
+                    self.writer.add_scalar(
+                        tag="q_eval",
+                        scalar_value=q_eval,
+                        global_step=self.update_counter,
+                        walltime=None,
+                    )
+                    self.writer.add_scalar(
+                        tag="q_target",
+                        scalar_value=q_target,
+                        global_step=self.update_counter,
+                        walltime=None,
+                    )
 
-                s, info = s_, info_
-                step_counter += 1
-                if step_counter % self.eval_update_freq == 0 and step_counter > (
-                        self.batch_size + self.n_step):
-                    for i in range(self.update_times):
-                        (
-                            states,
-                            infos,
-                            actions,
-                            rewards,
-                            next_states,
-                            next_infos,
-                            dones,
-                        ) = replay_buffer.sample()
-                        KL_div, td_error, q_eval, q_target = self.update(
-                            states,
-                            infos,
-                            actions,
-                            rewards,
-                            next_states,
-                            next_infos,
-                            dones,
-                        )
-                        if self.update_counter % self.q_value_memorize_freq == 1:
-                            self.writer.add_scalar(
-                                tag="KL",
-                                scalar_value=KL_div,
-                                global_step=self.update_counter,
-                                walltime=None,
-                            )
-                            self.writer.add_scalar(
-                                tag="td_error",
-                                scalar_value=td_error,
-                                global_step=self.update_counter,
-                                walltime=None,
-                            )
-                            self.writer.add_scalar(
-                                tag="q_eval",
-                                scalar_value=q_eval,
-                                global_step=self.update_counter,
-                                walltime=None,
-                            )
-                            self.writer.add_scalar(
-                                tag="q_target",
-                                scalar_value=q_target,
-                                global_step=self.update_counter,
-                                walltime=None,
-                            )
-                if done:
-                    break
-            final_balance, required_money = (
-                train_env.final_balance,
-                train_env.required_money,
-            )
             self.writer.add_scalar(
                 tag="return_rate_train",
-                scalar_value=final_balance / required_money,
+                scalar_value=final_return_rate,
                 global_step=sample,
                 walltime=None,
             )
-            self.writer.add_scalar(
-                tag="final_balance_train",
-                scalar_value=final_balance,
-                global_step=sample,
-                walltime=None,
-            )
-            self.writer.add_scalar(
-                tag="required_money_train",
-                scalar_value=required_money,
-                global_step=sample,
-                walltime=None,
-            )
-            self.writer.add_scalar(
-                tag="reward_sum_train",
-                scalar_value=episode_reward_sum,
-                global_step=sample,
-                walltime=None,
-            )
-            epoch_return_rate_train_list.append(final_balance / required_money)
-            epoch_final_balance_train_list.append(final_balance)
-            epoch_required_money_train_list.append(required_money)
-            epoch_reward_sum_train_list.append(episode_reward_sum)
 
-            if len(epoch_final_balance_train_list) == epoch_number:
+            epoch_return_rate_train_list.append(final_return_rate)
+
+            if len(epoch_return_rate_train_list) == epoch_number:
                 epoch_index = int((sample + 1) / epoch_number)
                 if self.ada_decay:
                     self.ada = get_ada(
@@ -501,35 +452,14 @@ class DQN(object):
                         decay_coffient=self.epsilon_decay_coffient,
                     )
                 mean_return_rate_train = np.mean(epoch_return_rate_train_list)
-                mean_final_balance_train = np.mean(
-                    epoch_final_balance_train_list)
-                mean_required_money_train = np.mean(
-                    epoch_required_money_train_list)
-                mean_reward_sum_train = np.mean(epoch_reward_sum_train_list)
+
                 self.writer.add_scalar(
                     tag="epoch_return_rate_train",
                     scalar_value=mean_return_rate_train,
                     global_step=epoch_index,
                     walltime=None,
                 )
-                self.writer.add_scalar(
-                    tag="epoch_final_balance_train",
-                    scalar_value=mean_final_balance_train,
-                    global_step=epoch_index,
-                    walltime=None,
-                )
-                self.writer.add_scalar(
-                    tag="epoch_required_money_train",
-                    scalar_value=mean_required_money_train,
-                    global_step=epoch_index,
-                    walltime=None,
-                )
-                self.writer.add_scalar(
-                    tag="epoch_reward_sum_train",
-                    scalar_value=mean_reward_sum_train,
-                    global_step=epoch_index,
-                    walltime=None,
-                )
+
                 epoch_path = os.path.join(self.model_path,
                                           "epoch_{}".format(epoch_index))
                 if not os.path.exists(epoch_path):
@@ -540,9 +470,6 @@ class DQN(object):
                 )
                 self.test(epoch_path)
                 epoch_return_rate_train_list = []
-                epoch_final_balance_train_list = []
-                epoch_required_money_train_list = []
-                epoch_reward_sum_train_list = []
 
     def test(self, epoch_path):
         self.eval_net.load_state_dict(

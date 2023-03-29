@@ -78,9 +78,9 @@ def collect_experience(id, actor: actor, environment):
         s, info = s_, info_
     optimal_result = np.max(
         specific_env.q_table[0][0][:]) / specific_env.required_money
-    final_return_rate = specific_env.final_balance / specific_env.required_money
+    final_return_rate = specific_env.final_balance / (specific_env.required_money+1e-12)
     indicator = (optimal_result - final_return_rate) * optimal_result * 10000
-    return id, tranjectory, indicator,optimal_result
+    return id, tranjectory, indicator, optimal_result, final_return_rate
 
 
 def collect_multiple_experience(id_list, actor, environment):
@@ -93,14 +93,19 @@ def collect_multiple_experience(id_list, actor, environment):
     id_list = []
     tranjectory_list = []
     indicator_list = []
-    optimal_list=[]
+    optimal_list = []
+    final_return_rate_list = []
     for i in range(len(result)):
-        id, tranjectory, indicator,optimal_result = result[i]
+        id, tranjectory, indicator, optimal_result, final_return_rate = result[
+            i]
         id_list.append(id)
         tranjectory_list.append(tranjectory)
         indicator_list.append(indicator)
-        optimal_list.append()
-    return range(len(result)), id_list, tranjectory_list, indicator_list
+        optimal_list.append(optimal_result)
+        final_return_rate_list.append(final_return_rate)
+    return range(
+        len(result)
+    ), id_list, tranjectory_list, indicator_list, optimal_list, final_return_rate_list
 
 
 if __name__ == "__main__":
@@ -120,7 +125,7 @@ if __name__ == "__main__":
     #multi preprocessing
     id_list = range(0, len(data), 14400)
     print("id_list", id_list)
-    index_list,id_list_test, tranjectory_list, indicator_list = collect_multiple_experience(
+    index_list, id_list_test, tranjectory_list, indicator_list = collect_multiple_experience(
         id_list, agent, start_env)
     print(id_list_test)
     print(indicator_list)
