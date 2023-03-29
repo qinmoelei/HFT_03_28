@@ -29,11 +29,6 @@ parser.add_argument(
     help="the number of transcation we store in one memory",
 )
 
-parser.add_argument("--dataset",
-                    type=str,
-                    default="BTCUSDT-2022-11",
-                    help="the name of the dataset")
-
 parser.add_argument(
     "--q_value_memorize_freq",
     type=int,
@@ -75,7 +70,7 @@ parser.add_argument(
 )
 parser.add_argument("--ada",
                     type=float,
-                    default=16,
+                    default=0.1,
                     help="the coffient for auxliary task")
 parser.add_argument(
     "--num_sample",
@@ -101,7 +96,7 @@ therefore back_time_length must be larger than or equal 4"""
 parser.add_argument(
     "--result_path",
     type=str,
-    default="result_epoch_number_2",
+    default="result",
     help="the path for storing the test result",
 )
 parser.add_argument(
@@ -146,7 +141,7 @@ parser.add_argument(
 parser.add_argument(
     "--ada_decay_coffient",
     type=float,
-    default=0.5,
+    default=0.9,
     help="the coffient for decay",
 )
 parser.add_argument(
@@ -159,7 +154,7 @@ parser.add_argument(
 parser.add_argument(
     "--epsilon_decay_coffient",
     type=float,
-    default=0.5,
+    default=0.9,
     help="the coffient for decay",
 )
 
@@ -209,7 +204,7 @@ class DQN(object):
         self.writer = SummaryWriter(self.log_path)
         self.update_counter = 0
         self.q_value_memorize_freq = args.q_value_memorize_freq
-
+        self.grad_clip=3
         if not os.path.exists(self.model_path):
             os.makedirs(self.model_path)
         data_path = os.path.join(os.getcwd(), "..", "short_term_data")
@@ -219,7 +214,6 @@ class DQN(object):
                 data_path, "tech_indicator_list.yml")))["tech_indicator_list"]
         self.transcation_cost = args.transcation_cost
         self.back_time_length = args.back_time_length
-        print(self.transcation_cost)
         self.test_ev_instance = Testing_env(
             df=self.test_df,
             tech_indicator_list=self.tech_indicator_list,
@@ -237,7 +231,8 @@ class DQN(object):
         self.hardupdate()
         self.update_times = args.update_times
         self.optimizer = torch.optim.Adam(self.eval_net.parameters(),
-                                          lr=args.lr)
+                                          lr=args.lr,
+                                          weight_decay=1e-2)
         self.loss_func = nn.MSELoss()  # 使用均方损失函数 (loss(xi, yi)=(xi-yi)^2)
         self.target_freq = args.target_freq
         self.batch_size = args.batch_size
@@ -297,6 +292,7 @@ class DQN(object):
         # print(td_error)
         self.optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.eval_net.parameters(), self.grad_clip)
         self.optimizer.step()
         self.update_counter += 1
         if self.update_counter % self.target_freq == 1:

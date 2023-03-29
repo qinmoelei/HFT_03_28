@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=1 nohup python RL/util/multi_actor.py > test1.log 2>&1 &
