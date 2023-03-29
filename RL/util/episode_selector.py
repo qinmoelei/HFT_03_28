@@ -18,7 +18,11 @@ class start_selector(object):
     def sample(self):
         batch_index, IS_weight = self.tree.get_batch_index(
             current_size=self.current_size, batch_size=1, beta=0)
-        return self.start_list[batch_index]
+        return self.start_list[batch_index], batch_index
 
-    def update_batch_priorities(self, index, priority):
+    def update_single_priorities(self, index, priority):
         self.tree.update(data_index=index, priority=priority)
+
+    def update_batch_priorities(self, batch_index, priorities):
+        for index, priority in zip(batch_index, priorities):
+            self.tree.update(data_index=index, priority=priority)

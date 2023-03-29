@@ -80,13 +80,32 @@ def collect_experience(id, actor: actor, environment):
         specific_env.q_table[0][0][:]) / specific_env.required_money
     final_return_rate = specific_env.final_balance / specific_env.required_money
     indicator = (optimal_result - final_return_rate) * optimal_result * 10000
+    return id, tranjectory, indicator,optimal_result
 
-    return id, tranjectory, indicator
+
+def collect_multiple_experience(id_list, actor, environment):
+    ctx = torch.multiprocessing.get_context("spawn")
+    pool = ctx.Pool()
+    func = partial(collect_experience, actor=actor, environment=environment)
+    result = pool.map(func, id_list)
+    pool.close()
+    pool.join()
+    id_list = []
+    tranjectory_list = []
+    indicator_list = []
+    optimal_list=[]
+    for i in range(len(result)):
+        id, tranjectory, indicator,optimal_result = result[i]
+        id_list.append(id)
+        tranjectory_list.append(tranjectory)
+        indicator_list.append(indicator)
+        optimal_list.append()
+    return range(len(result)), id_list, tranjectory_list, indicator_list
 
 
 if __name__ == "__main__":
     data = pd.read_feather(
-        "/data1/sunshuo/qml/HFT/HFT_03_27/data/BTCTUSD/2023/test.feather")
+        "/data1/sunshuo/qml/HFT/HFT_03_27/data/BTCTUSD/2023/train.feather")
     start_env = partial(
         Training_Env,
         df=data,
@@ -99,53 +118,19 @@ if __name__ == "__main__":
     model = masked_net1(66, 11, 32)
     agent = actor(model=model, seed=12345)
     #multi preprocessing
+    id_list = range(0, len(data), 14400)
+    print("id_list", id_list)
+    index_list,id_list_test, tranjectory_list, indicator_list = collect_multiple_experience(
+        id_list, agent, start_env)
+    print(id_list_test)
+    print(indicator_list)
 
-    func = partial(collect_experience, actor=agent, environment=start_env)
-    start1 = time.time()
-    func(id=0)
-    end1 = time.time()
-    print("to run one environment, it will take {} seconds".format(end1 -
-                                                                   start1))
+    # func = partial(collect_experience, actor=agent, environment=start_env)
 
-    start1 = time.time()
-    func(id=1000)
-    end1 = time.time()
-    print("to run one environment, it will take {} seconds".format(end1 -
-                                                                   start1))
+    # ctx = torch.multiprocessing.get_context("spawn")
+    # pool = ctx.Pool()
 
-    ctx = torch.multiprocessing.get_context("spawn")
-    pool = ctx.Pool()
-    args = [
-        0,
-        1000,
-        2000,
-        3000,
-        4000,
-        5000,
-        6000,
-        7000,
-        8000,
-        9000,
-        10000,
-        11000,
-        12000,
-        13000,
-        14000,
-        15000,
-        16000,
-        17000,
-        18000,
-        19000,
-    ]
-    result = pool.map(func, args)
-    pool.close()
-    pool.join()
+    # result = pool.map(func, id_list)
+    # pool.close()
+    # pool.join()
     # print(result)
-    end2 = time.time()
-    print("to run 20 environment, it will take {} seconds".format(end2 - end1))
-    for i in range(len(result)):
-        id = result[i][0]
-        print(id)
-        indicator = result[i][2]
-        print(indicator)
-    #actor pool

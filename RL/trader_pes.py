@@ -15,6 +15,8 @@ from torch import nn
 import yaml
 import pandas as pd
 from env.env import Testing_env, Training_Env
+from RL.util.multi_actor import *
+from RL.util.episode_selector import *
 #相比最原版增加了优化器正则和clip norm
 #调试调整了epoch number
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -97,7 +99,7 @@ therefore back_time_length must be larger than or equal 4"""
 parser.add_argument(
     "--result_path",
     type=str,
-    default="result/origional",
+    default="result/PES",
     help="the path for storing the test result",
 )
 parser.add_argument(
@@ -250,6 +252,20 @@ class DQN(object):
         self.ada_decay = args.ada_decay
         self.epsilon_decay_coffient = args.epsilon_decay_coffient
         self.ada_decay_coffient = args.ada_decay_coffient
+        self.actor = actor(self.eval_net, self.seed, epsilon=self.epsilon)
+        self.start_list = range(0, len(self.train_df), self.chunk_length)
+        Partial_training_env = partial(
+            Training_Env,
+            df=self.train_df,
+            tech_indicator_list=self.tech_indicator_list,
+            transcation_cost=self.transcation_cost,
+            back_time_length=self.back_time_length,
+            max_holding_number=self.max_holding_number,
+            chunck_length=self.chunk_length,
+        )
+        index_list, self.start_list, tranjectory_list, priority_list = collect_multiple_experience(
+            self.start_list, self.actor, Partial_training_env)
+        self.start_selector = start_selector()
 
     def update(
         self,
