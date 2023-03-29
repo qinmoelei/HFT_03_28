@@ -46,8 +46,7 @@ class actor:
             0).to(self.device)
         avaliable_action = torch.unsqueeze(
             info["avaliable_action"].to(self.device), 0).to(self.device)
-        holding_length = torch.unsqueeze(
-            torch.tensor(info["holding_length"]).float(), 0).to(self.device)
+        
 
         if np.random.uniform() < self.epsilon:
             actions_value = self.trader.forward(
@@ -63,6 +62,9 @@ class actor:
                 if info["avaliable_action"][i] == 1:
                     action_choice.append(i)
             action = random.choice(action_choice)
+        del previous_action
+        del x
+        del avaliable_action
         return action
 
 
@@ -83,9 +85,9 @@ def collect_experience(id, actor: actor, environment):
     return id, tranjectory, indicator, optimal_result, final_return_rate
 
 
-def collect_multiple_experience(id_list, actor, environment):
+def collect_multiple_experience(id_list, actor, environment,num_process=10):
     ctx = torch.multiprocessing.get_context("spawn")
-    pool = ctx.Pool()
+    pool = ctx.Pool(processes=num_process)
     func = partial(collect_experience, actor=actor, environment=environment)
     result = pool.map(func, id_list)
     pool.close()

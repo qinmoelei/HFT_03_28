@@ -263,6 +263,7 @@ class DQN(object):
         info_: dict,
         dones: torch.tensor,
     ):
+        print("updating")
         b = states.shape[0]
         q_eval = self.eval_net(
             states.reshape(b, -1),
@@ -378,6 +379,7 @@ class DQN(object):
             start, index = self.start_selector.sample()
             tranjectory = tranjectory_list[index]
             final_return_rate = final_return_rate_list[index]
+            print("puring into replau buffer")
             for transition in tranjectory:
                 replay_buffer.add_transition(transition)
             for i in range(self.update_times):
