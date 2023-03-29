@@ -261,7 +261,6 @@ class DQN(object):
         info_: dict,
         dones: torch.tensor,
     ):
-        print("updating")
         b = states.shape[0]
         q_eval = self.eval_net(
             states.reshape(b, -1),
