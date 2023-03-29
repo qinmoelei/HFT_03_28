@@ -15,7 +15,8 @@ from torch import nn
 import yaml
 import pandas as pd
 from env.env import Testing_env, Training_Env
-
+#相比最原版增加了优化器正则和clip norm
+#调试调整了epoch number
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -57,7 +58,7 @@ parser.add_argument("--epsilon",
                     help="the learning rate")
 parser.add_argument("--update_times",
                     type=int,
-                    default=10,
+                    default=2,
                     help="the update times")
 parser.add_argument("--gamma", type=float, default=1, help="the learning rate")
 
@@ -96,7 +97,7 @@ therefore back_time_length must be larger than or equal 4"""
 parser.add_argument(
     "--result_path",
     type=str,
-    default="result",
+    default="result/origional",
     help="the path for storing the test result",
 )
 parser.add_argument(
@@ -189,7 +190,6 @@ class DQN(object):
             "commission_fee_{}".format(args.transcation_cost),
             "seed_{}".format(self.seed),
         )
-        self.dataset = args.dataset
         # new dataset
         self.max_holding_number = 0.01
 
@@ -204,7 +204,7 @@ class DQN(object):
         self.writer = SummaryWriter(self.log_path)
         self.update_counter = 0
         self.q_value_memorize_freq = args.q_value_memorize_freq
-        self.grad_clip=3
+        self.grad_clip = 3
         if not os.path.exists(self.model_path):
             os.makedirs(self.model_path)
         data_path = os.path.join(os.getcwd(), "..", "short_term_data")
@@ -261,6 +261,7 @@ class DQN(object):
         info_: dict,
         dones: torch.tensor,
     ):
+        print("updating")
         b = states.shape[0]
         q_eval = self.eval_net(
             states.reshape(b, -1),
@@ -292,7 +293,8 @@ class DQN(object):
         # print(td_error)
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.eval_net.parameters(), self.grad_clip)
+        torch.nn.utils.clip_grad_norm_(self.eval_net.parameters(),
+                                       self.grad_clip)
         self.optimizer.step()
         self.update_counter += 1
         if self.update_counter % self.target_freq == 1:

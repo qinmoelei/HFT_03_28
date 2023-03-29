@@ -8,7 +8,7 @@ import argparse
 import os
 import torch
 import sys
-
+#由于在for循环中 np计算会存有一点点剩余 导致剩余的position不全是0 进而导致出现买不全的现象
 sys.path.append(".")
 
 from tool.demonstration import making_multi_level_dp_demonstration, make_q_table, get_dp_action_from_qtable
@@ -289,6 +289,7 @@ class Testing_env(gym.Env):
         self.previous_position = self.position
         avaliable_discriminator = self.calculate_avaliable_action(
             current_price_information)
+        self.avaliable_discriminator=avaliable_discriminator
         # self.get_final_return_rate()
         # 检查是否出现return rate 为nan的情况
         if self.terminal:
@@ -300,6 +301,7 @@ class Testing_env(gym.Env):
             self.required_money = required_money
             print("the portfit margine is ",
                   self.final_balance / self.required_money)
+
 
         return self.state.reshape(-1), self.reward, self.terminal, {
             "previous_action": action,
@@ -373,10 +375,10 @@ if __name__ == "__main__":
     df = pd.read_feather(data_path).iloc[0:10000]
     env = Training_Env(df)
     state, info = env.reset()
+    
     done = False
     while not done:
         action = info["q_action"].index(1)
         state, reward, done, info = env.step(action)
-        print(info["soft_q_action"])
     
     print(np.max(env.q_table[0][0][:])/env.required_money)
