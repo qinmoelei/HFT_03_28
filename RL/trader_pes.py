@@ -354,7 +354,8 @@ class DQN(object):
         epoch_required_money_train_list = []
         epoch_reward_sum_train_list = []
 
-        epoch_number = int(len(self.train_df) / self.chunk_length)
+        # epoch_number = int(len(self.train_df) / self.chunk_length)
+        epoch_number = 10
 
         replay_buffer = Multi_step_ReplayBuffer_multi_info(
             buffer_size=self.buffer_size,
@@ -392,6 +393,7 @@ class DQN(object):
                 back_time_length=self.back_time_length,
                 max_holding_number=self.max_holding_number,
             )
+            self.eval_net.to(self.device)
             s, info = train_env.reset()
             episode_reward_sum = 0
             while True:
