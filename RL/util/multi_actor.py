@@ -81,7 +81,7 @@ def collect_experience(id, actor: actor, environment):
     optimal_result = np.max(
         specific_env.q_table[0][0][:]) / specific_env.required_money
     final_return_rate = specific_env.final_balance / (specific_env.required_money+1e-12)
-    indicator = (optimal_result - final_return_rate) * optimal_result * 10000
+    indicator = (optimal_result - final_return_rate) 
     return id, indicator, optimal_result, final_return_rate
 
 

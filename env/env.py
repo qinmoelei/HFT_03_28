@@ -118,7 +118,7 @@ class Testing_env(gym.Env):
         self.comission_fee_history = []
         self.previous_position = 0
         self.position = 0
-        self.position_holding_length=1
+        self.position_holding_length = 1
 
     def sell_value(self, price_information, position):
         orgional_position = position
@@ -216,13 +216,12 @@ class Testing_env(gym.Env):
             price_information)
         self.previous_position = 0
         self.position = 0
-        self.position_holding_length=1
-
+        self.position_holding_length = 1
 
         return self.state.reshape(-1), {
             "previous_action": 0,
             "avaliable_action": avaliable_discriminator,
-            "holding_length":[self.position_holding_length]
+            "holding_length": [self.position_holding_length]
         }
 
     def step(self, action):
@@ -239,10 +238,10 @@ class Testing_env(gym.Env):
         self.previous_position = previous_position
         self.position = position
         if previous_position == position:
-            self.position_holding_length+=1
+            self.position_holding_length += 1
         else:
-            self.position_holding_length=1
-            
+            self.position_holding_length = 1
+
         if previous_position >= position:
             # hold the position or sell some position
             self.sell_size = previous_position - position
@@ -289,7 +288,7 @@ class Testing_env(gym.Env):
         self.previous_position = self.position
         avaliable_discriminator = self.calculate_avaliable_action(
             current_price_information)
-        self.avaliable_discriminator=avaliable_discriminator
+        self.avaliable_discriminator = avaliable_discriminator
         # self.get_final_return_rate()
         # 检查是否出现return rate 为nan的情况
         if self.terminal:
@@ -300,13 +299,12 @@ class Testing_env(gym.Env):
                 current_price_information, self.position)
             self.required_money = required_money
             print("the portfit margine is ",
-                  self.final_balance / self.required_money)
-
+                  self.final_balance / (self.required_money + 1e-12))
 
         return self.state.reshape(-1), self.reward, self.terminal, {
             "previous_action": action,
             "avaliable_action": avaliable_discriminator,
-            "holding_length":[self.position_holding_length]
+            "holding_length": [self.position_holding_length]
         }
 
     def get_final_return_rate(self, slient=False):
@@ -319,7 +317,9 @@ class Testing_env(gym.Env):
             balance_list.append(np.sum(true_money[:i + 1]))
         required_money = -np.min(balance_list)
         commission_fee = np.sum(self.comission_fee_history)
-        return final_balance / required_money, final_balance, required_money, commission_fee
+        return final_balance / (
+            required_money +
+            1e-12), final_balance, required_money, commission_fee
 
 
 class Training_Env(Testing_env):
@@ -348,9 +348,10 @@ class Training_Env(Testing_env):
         info["q_action"] = [0] * 11
         action = np.argmax(self.q_table[self.day - 1][self.previous_action][:])
         info["q_action"][action] = 1
-        info['soft_q_action']=self.get_soft_q_action(self.q_table[self.day - 1][self.previous_action][:])
-        info['previous_action_indicator']=[0]*11
-        info['previous_action_indicator'][0]=1
+        info['soft_q_action'] = self.get_soft_q_action(
+            self.q_table[self.day - 1][self.previous_action][:])
+        info['previous_action_indicator'] = [0] * 11
+        info['previous_action_indicator'][0] = 1
         return state, info
 
     def step(self, action):
@@ -358,15 +359,17 @@ class Training_Env(Testing_env):
         info["q_action"] = [0] * 11
         action = np.argmax(self.q_table[self.day - 1][action][:])
         info["q_action"][action] = 1
-        info['soft_q_action']=self.get_soft_q_action(self.q_table[self.day - 1][self.previous_action][:])
-        
-        info['previous_action_indicator']=[0]*11
-        info['previous_action_indicator'][action]=1
+        info['soft_q_action'] = self.get_soft_q_action(
+            self.q_table[self.day - 1][self.previous_action][:])
+
+        info['previous_action_indicator'] = [0] * 11
+        info['previous_action_indicator'][action] = 1
         return state, reward, done, info
-    
-    def get_soft_q_action(self,q_table_action):
-        q_table_action= (q_table_action-np.mean(q_table_action))/(np.std(q_table_action)+1e-12)
-        soft_q_action=np.exp(q_table_action)/np.sum(np.exp(q_table_action))
+
+    def get_soft_q_action(self, q_table_action):
+        q_table_action = (q_table_action - np.mean(q_table_action)) / (
+            np.std(q_table_action) + 1e-12)
+        soft_q_action = np.exp(q_table_action) / np.sum(np.exp(q_table_action))
         return soft_q_action
 
 
@@ -375,10 +378,10 @@ if __name__ == "__main__":
     df = pd.read_feather(data_path).iloc[0:10000]
     env = Training_Env(df)
     state, info = env.reset()
-    
+
     done = False
     while not done:
         action = info["q_action"].index(1)
         state, reward, done, info = env.step(action)
-    
-    print(np.max(env.q_table[0][0][:])/env.required_money)
+
+    print(np.max(env.q_table[0][0][:]) / env.required_money)

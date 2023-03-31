@@ -355,7 +355,6 @@ class DQN(object):
 
         # epoch_number = int(len(self.train_df) / self.chunk_length)
         epoch_number = 10
-
         replay_buffer = Multi_step_ReplayBuffer_multi_info(
             buffer_size=self.buffer_size,
             batch_size=self.batch_size,
