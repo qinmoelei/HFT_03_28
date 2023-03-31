@@ -68,9 +68,9 @@ class SumTree(object):
         else:
             v = np.random.uniform(0, segment-1)
             index, priority = self.get_index(v)
-            batch_index[i] = index
+            batch_index[0] = index
             prob = priority / self.priority_sum  # 当前数据被采样的概率
-            IS_weight[i] = (current_size * prob)**(-beta)
+            IS_weight[0] = (current_size * prob)**(-beta)
         IS_weight /= IS_weight.max()  # normalization
 
         return batch_index, IS_weight
