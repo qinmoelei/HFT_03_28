@@ -56,10 +56,17 @@ class SumTree(object):
         batch_index = np.zeros(batch_size, dtype=np.int32)
         IS_weight = torch.zeros(batch_size, dtype=torch.float32)
         segment = self.priority_sum / batch_size  # 把[0,priority_sum]等分成batch_size个区间，在每个区间均匀采样一个数
-        for i in range(batch_size):
-            a = segment * i
-            b = segment * (i + 1)
-            v = np.random.uniform(a, b)
+        if batch_size>1:
+            for i in range(batch_size):
+                a = segment * i
+                b = segment * (i + 1)
+                v = np.random.uniform(a, b)
+                index, priority = self.get_index(v)
+                batch_index[i] = index
+                prob = priority / self.priority_sum  # 当前数据被采样的概率
+                IS_weight[i] = (current_size * prob)**(-beta)
+        else:
+            v = np.random.uniform(0, segment-1)
             index, priority = self.get_index(v)
             batch_index[i] = index
             prob = priority / self.priority_sum  # 当前数据被采样的概率
